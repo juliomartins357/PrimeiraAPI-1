@@ -2,6 +2,8 @@ const express = require('express');
 const app = express();
 const port = 3000;
 
+const db = require('./db');
+
 app.use(express.json()); //Define que estamos usando json
 
 let clientes = [];
@@ -10,41 +12,81 @@ app.get("/", (req, res) => {
     res.send("Hello world!")
 });
 
-app.get("/cliente", (req, res)=> {
-    res.send(clientes);
+app.get("/cliente", async (req, res)=> {
+    try{
+        const [rows] = await db.query("Select * from cliente");
+        res.json(rows);
+    }catch(error){
+        console.log("Erro ao buscar: " + error.message);
+        res.status(500).send("Erro ao buscar clientes")
+    }
 });
 
-app.get("/cliente/:id", (req, res) => {
+app.get("/cliente/:id", async (req, res) => {
     const id = req.params.id;
-    const cliente = clientes.find(cliente => cliente.id == id);
-    res.send(cliente);
+
+    try {
+        const [rows] = await db.query("Select * from cliente Where id = ?", [id]);
+        if (rows.length > 0) {
+            res.json(rows[0]); 
+        }
+        res.status(404).send("Cliente com id:" + id + " não encontrado!")
+    }catch(error){
+        console.log("Erro ao buscar: " + error.message);
+        res.status(500).send("Erro ao buscar clientes")
+    }
+
 });
 
-app.post("/cliente", (req, res) => {
+app.post("/cliente",async (req, res) => {
     // const nome = req.body.nome;
     let cliente = req.body;
-    cliente.id = clientes.length + 1;
-    clientes.push(cliente);
-    res.send("Cliente cadastrado com sucesso!");
-});
+    try{
+        const [rows] = await db.query("Insert into cliente(nome, idade, cpf) values (?,?,?)",
+         [cliente.nome, cliente.idade, cliente.cpf]);
 
-app.put("/cliente/:id", (req, res) => {
-    const id = req.params.id;
-    for(let i = 0; i < clientes.length; i++){
-        if(clientes[i].id == id){
-            let cliente = req.body;
-            cliente.id = parseInt(id);
-            clientes[i] = cliente;
-        }
+        cliente.id = rows.insertId;
+
+        res.status(201).json(cliente);
+    }catch(error){
+        console.log("Erro ao cadastrar cliente: " + error.message);
+        res.status(500).send("Erro ao cadastrar clientes")
     }
-    res.send("Cliente com id " + id + " Atualizado com sucesso!")
 });
 
-app.delete("/cliente/:id", (req, res) => {
+app.put("/cliente/:id",async (req, res) => {
     const id = req.params.id;
-    let listaCliente = clientes.filter(cliente => cliente.id != id);
-    clientes = listaCliente;
-    res.send("Cliente com id " + id + " Deletado com sucesso!")
+
+    try {
+        const [rows] = await db.query("Select * from cliente Where id = ?", [id]);
+        if (rows.length > 0) {
+            let cliente = req.body;
+             const [rows] = await db.query("Update cliente set nome = ?, idade = ?, cpf = ? Where id = ?",
+             [cliente.nome, cliente.idade, cliente.cpf, id])
+
+             cliente.id = id;
+
+             res.status(200).json(cliente);
+        }
+        res.status(404).send("Cliente com id:" + id + " não encontrado!")
+    }catch(error){
+        console.log("Erro ao atualizar: " + error.message);
+        res.status(500).send("Erro ao atualizar clientes")
+    }
+});
+
+app.delete("/cliente/:id", async (req, res) => {
+    const id = req.params.id;
+    try{
+        const [rows] = await db.query("Delete From cliente Where id = ?", [id]);
+        if(rows.affectedRows > 0) {
+            res.status(204).send("Cliente deletado com sucesso!")
+        }
+        res.status(404).send("Cliente não encontrado para deletar!")
+    }catch(error){
+        console.log("Erro ao deletar: " + error.message);
+        res.status(500).send("Erro ao deletar clientes")
+    }
 })
 
 app.listen(port, ()=> {

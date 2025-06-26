@@ -6,6 +6,7 @@
   "author": "otavio <otavio_neves@estudante.sesisenai.org.br>",
   "license": "MIT",
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "mysql2": "^3.14.1"
   }
 }
